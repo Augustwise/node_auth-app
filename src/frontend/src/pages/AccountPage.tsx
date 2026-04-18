@@ -11,7 +11,7 @@ export function AccountPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      navigate('/register', { replace: true });
+      navigate('/login', { replace: true });
       return;
     }
 
@@ -22,7 +22,7 @@ export function AccountPage() {
 
   function handleLogout() {
     clearAccessToken();
-    navigate('/register', { replace: true });
+    navigate('/login', { replace: true });
   }
 
   if (error) {
@@ -58,13 +58,13 @@ export function AccountPage() {
               style={{
                 textAlign: 'left',
                 padding: '10px 12px',
-                border: '1px solid #d0d0d0',
+                border: '1px solid #333',
                 width: '35%',
               }}
             >
               Name
             </th>
-            <td style={{ padding: '10px 12px', border: '1px solid #d0d0d0' }}>{user.name}</td>
+            <td style={{ padding: '10px 12px', border: '1px solid #333' }}>{user.name}</td>
           </tr>
           <tr>
             <th
@@ -72,12 +72,12 @@ export function AccountPage() {
               style={{
                 textAlign: 'left',
                 padding: '10px 12px',
-                border: '1px solid #d0d0d0',
+                border: '1px solid #333',
               }}
             >
               Email
             </th>
-            <td style={{ padding: '10px 12px', border: '1px solid #d0d0d0' }}>{user.email}</td>
+            <td style={{ padding: '10px 12px', border: '1px solid #333' }}>{user.email}</td>
           </tr>
         </tbody>
       </table>

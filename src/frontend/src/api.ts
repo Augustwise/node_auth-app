@@ -54,6 +54,13 @@ export function register(body: {
   });
 }
 
+export function login(body: { email: string; password: string }) {
+  return request<{ accessToken: string }>('/login', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export function fetchMe() {
   return request<{ id: number; name: string; email: string }>('/users/me');
 }

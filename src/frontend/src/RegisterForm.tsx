@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { register, type ApiError } from './api';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -140,6 +141,10 @@ export function RegisterForm() {
       <button type="submit" disabled={submitting} style={{ padding: 8, cursor: 'pointer' }}>
         {submitting ? 'Registering...' : 'Register'}
       </button>
+
+      <p style={{ margin: 0, fontSize: 14 }}>
+        Already have an account? <Link to="/login">Log in</Link>
+      </p>
     </form>
   );
 }

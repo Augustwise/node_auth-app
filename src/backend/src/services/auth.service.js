@@ -2,6 +2,7 @@
 
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const jwtService = require('./jwt.service');
 
 const { User } = require('../models/user.model');
 const { ApiError } = require('../utils/ApiError');
@@ -70,4 +71,29 @@ async function activate(activationToken) {
   return user;
 }
 
-module.exports = { register, activate };
+async function login({ email, password }) {
+  const user = await userService.findByEmail(email);
+
+  if (!user) {
+    throw ApiError.unauthorized('Invalid email or password');
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+
+  if (!isPasswordValid) {
+    throw ApiError.unauthorized('Invalid email or password');
+  }
+
+  if (user.activationToken) {
+    throw ApiError.unauthorized(
+      'Your account is not activated yet.' +
+        ' Check your email for the activation link.',
+    );
+  }
+
+  return {
+    accessToken: jwtService.sign({ id: user.id, email: user.email }),
+  };
+}
+
+module.exports = { register, activate, login };
