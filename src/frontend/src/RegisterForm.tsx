@@ -138,8 +138,8 @@ export function RegisterForm() {
         <p style={{ color: '#c00', margin: 0, fontSize: 13 }}>{serverMessage}</p>
       )}
 
-      <button type="submit" disabled={submitting} style={{ padding: 8, cursor: 'pointer' }}>
-        {submitting ? 'Registering...' : 'Register'}
+      <button className="app-button" type="submit" disabled={submitting}>
+        {submitting ? 'Creating account...' : 'Sign Up'}
       </button>
 
       <p style={{ margin: 0, fontSize: 14 }}>

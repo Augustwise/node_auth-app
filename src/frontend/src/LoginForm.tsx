@@ -105,7 +105,7 @@ export function LoginForm() {
         <p style={{ color: '#c00', margin: 0, fontSize: 13 }}>{serverMessage}</p>
       )}
 
-      <button type="submit" disabled={submitting} style={{ padding: 8, cursor: 'pointer' }}>
+      <button className="app-button" type="submit" disabled={submitting}>
         {submitting ? 'Logging in...' : 'Log in'}
       </button>
 

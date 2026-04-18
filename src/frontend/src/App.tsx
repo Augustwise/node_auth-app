@@ -3,6 +3,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ActivationPage } from './pages/ActivationPage';
 import { AccountPage } from './pages/AccountPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 import './styles.css';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/activation" element={<ActivationPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   );

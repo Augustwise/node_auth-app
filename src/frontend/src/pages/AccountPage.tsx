@@ -81,7 +81,7 @@ export function AccountPage() {
           </tr>
         </tbody>
       </table>
-      <button type="button" onClick={handleLogout} style={{ padding: 8, cursor: 'pointer' }}>
+      <button className="app-button" type="button" onClick={handleLogout}>
         Log out
       </button>
     </div>
