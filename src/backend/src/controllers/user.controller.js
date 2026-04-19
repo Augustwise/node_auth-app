@@ -17,4 +17,20 @@ async function me(req, res, next) {
   }
 }
 
-module.exports = { me };
+async function changePassword(req, res, next) {
+  try {
+    const { oldPassword = '', newPassword = '' } = req.body;
+
+    await userService.changePassword({
+      userId: req.user.id,
+      oldPassword,
+      newPassword,
+    });
+
+    res.json({ message: 'Password changed successfully.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { me, changePassword };

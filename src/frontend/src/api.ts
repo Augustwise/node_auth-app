@@ -64,3 +64,13 @@ export function login(body: { email: string; password: string }) {
 export function fetchMe() {
   return request<{ id: number; name: string; email: string }>('/users/me');
 }
+
+export function changePassword(body: {
+  oldPassword: string;
+  newPassword: string;
+}) {
+  return request<{ message: string }>('/users/me/password', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
