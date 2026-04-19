@@ -33,4 +33,16 @@ async function changePassword(req, res, next) {
   }
 }
 
-module.exports = { me, changePassword };
+async function changeName(req, res, next) {
+  try {
+    const { newName = '' } = req.body;
+
+    await userService.changeName({ userId: req.user.id, newName });
+
+    res.json({ message: 'Name changed successfully.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { me, changePassword, changeName };

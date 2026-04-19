@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 
 const { User } = require('../models/user.model');
 const { ApiError } = require('../utils/ApiError');
-const { validatePassword } = require('../utils/validate');
+const { validatePassword, validateName } = require('../utils/validate');
 
 function normalize(user) {
   return {
@@ -61,10 +61,28 @@ async function changePassword({ userId, oldPassword, newPassword }) {
   await user.save();
 }
 
+async function changeName({ userId, newName }) {
+  const nameError = validateName(newName);
+
+  if (nameError) {
+    throw ApiError.badRequest('Validation failed', { newName: nameError });
+  }
+
+  const user = await findById(userId);
+
+  if (!user) {
+    throw ApiError.notFound('User not found');
+  }
+
+  user.name = String(newName).trim();
+  await user.save();
+}
+
 module.exports = {
   normalize,
   findByEmail,
   findByActivationToken,
   findById,
   changePassword,
+  changeName,
 };

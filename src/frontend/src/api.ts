@@ -74,3 +74,10 @@ export function changePassword(body: {
     body: JSON.stringify(body),
   });
 }
+
+export function changeName(body: { newName: string }) {
+  return request<{ message: string }>('/users/me/name', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}

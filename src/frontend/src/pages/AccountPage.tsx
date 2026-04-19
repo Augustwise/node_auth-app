@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  changeName,
   changePassword,
   clearAccessToken,
   fetchMe,
@@ -32,6 +33,14 @@ function validateNewPassword(password: string): string[] {
   return errors;
 }
 
+function validateNewName(name: string): string[] {
+  if (name.trim().length === 0) {
+    return ['Name is required'];
+  }
+
+  return [];
+}
+
 function validatePasswordConfirmation(
   newPassword: string,
   confirmPassword: string,
@@ -51,6 +60,12 @@ export function AccountPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showChangeName, setShowChangeName] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [nameSubmitted, setNameSubmitted] = useState(false);
+  const [nameSubmitting, setNameSubmitting] = useState(false);
+  const [nameServerErrors, setNameServerErrors] = useState<Record<string, string>>({});
+  const [nameServerMessage, setNameServerMessage] = useState<string | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -77,6 +92,61 @@ export function AccountPage() {
     navigate('/login', { replace: true });
   }
 
+  function resetChangeNameForm() {
+    setNewName('');
+    setNameSubmitted(false);
+    setNameSubmitting(false);
+    setNameServerErrors({});
+    setNameServerMessage(null);
+  }
+
+  function handleShowChangeName() {
+    setShowChangeName(true);
+    setShowChangePassword(false);
+    setSuccessMessage(null);
+    resetChangeNameForm();
+    resetChangePasswordForm();
+  }
+
+  function handleCancelChangeName() {
+    setShowChangeName(false);
+    resetChangeNameForm();
+  }
+
+  const newNameErrors = [
+    ...validateNewName(newName),
+    ...(nameServerErrors.newName ? [nameServerErrors.newName] : []),
+  ];
+  const hasNameClientErrors = validateNewName(newName).length > 0;
+
+  async function handleChangeNameSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setNameSubmitted(true);
+    setNameServerErrors({});
+    setNameServerMessage(null);
+    setSuccessMessage(null);
+
+    if (hasNameClientErrors) {
+      return;
+    }
+
+    setNameSubmitting(true);
+
+    try {
+      const { message } = await changeName({ newName });
+      setUser(prev => prev ? { ...prev, name: newName.trim() } : prev);
+      setSuccessMessage(message);
+      setShowChangeName(false);
+      resetChangeNameForm();
+    } catch (err) {
+      const apiError = err as ApiError;
+      setNameServerErrors(apiError?.errors ?? {});
+      setNameServerMessage(apiError?.message ?? 'Could not change your name.');
+    } finally {
+      setNameSubmitting(false);
+    }
+  }
+
   function resetChangePasswordForm() {
     setOldPassword('');
     setNewPassword('');
@@ -89,7 +159,9 @@ export function AccountPage() {
 
   function handleShowChangePassword() {
     setShowChangePassword(true);
+    setShowChangeName(false);
     setSuccessMessage(null);
+    resetChangeNameForm();
     resetChangePasswordForm();
   }
 
@@ -201,6 +273,9 @@ export function AccountPage() {
         <p style={{ color: '#0a6b2d', margin: '0 0 16px' }}>{successMessage}</p>
       )}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button className="app-button" type="button" onClick={handleShowChangeName}>
+          Change Name
+        </button>
         <button className="app-button" type="button" onClick={handleShowChangePassword}>
           Change Password
         </button>
@@ -208,6 +283,52 @@ export function AccountPage() {
           Log out
         </button>
       </div>
+
+      {showChangeName && (
+        <form
+          onSubmit={handleChangeNameSubmit}
+          noValidate
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            marginTop: 20,
+            padding: 16,
+            border: '1px solid #d7d7d7',
+            borderRadius: 12,
+          }}
+        >
+          <h3 style={{ margin: 0 }}>Change name</h3>
+
+          <input
+            type="text"
+            placeholder="New name"
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            required
+            style={{ padding: 8, fontSize: 14, borderColor: nameSubmitted && newNameErrors.length > 0 ? '#c00' : undefined }}
+          />
+
+          {nameSubmitted && newNameErrors.length > 0 && (
+            <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
+              {newNameErrors.map(nameError => <li key={nameError}>{nameError}</li>)}
+            </ul>
+          )}
+
+          {nameServerMessage && Object.keys(nameServerErrors).length === 0 && (
+            <p style={{ color: '#c00', margin: 0, fontSize: 13 }}>{nameServerMessage}</p>
+          )}
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button className="app-button" type="submit" disabled={nameSubmitting}>
+              {nameSubmitting ? 'Saving...' : 'Save new name'}
+            </button>
+            <button className="app-button" type="button" onClick={handleCancelChangeName} disabled={nameSubmitting}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
 
       {showChangePassword && (
         <form
