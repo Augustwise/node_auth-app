@@ -41,9 +41,26 @@ function verifyEmailChangeToken(token) {
   );
 }
 
+function signPasswordResetToken(payload) {
+  return signToken(
+    payload,
+    process.env.JWT_PASSWORD_RESET_SECRET || process.env.JWT_ACCESS_SECRET,
+    process.env.JWT_PASSWORD_RESET_EXPIRES || '1h',
+  );
+}
+
+function verifyPasswordResetToken(token) {
+  return verifyToken(
+    token,
+    process.env.JWT_PASSWORD_RESET_SECRET || process.env.JWT_ACCESS_SECRET,
+  );
+}
+
 module.exports = {
   sign,
   verify,
   signEmailChangeToken,
   verifyEmailChangeToken,
+  signPasswordResetToken,
+  verifyPasswordResetToken,
 };

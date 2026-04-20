@@ -1,5 +1,6 @@
 'use strict';
 
+const { createHash } = require('crypto');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const jwtService = require('./jwt.service');
@@ -13,6 +14,12 @@ const {
 } = require('../utils/validate');
 const userService = require('./user.service');
 const mailService = require('./mail.service');
+
+// Hash the stored bcrypt hash so reset tokens expire after a password change
+// without exposing the password hash itself inside the signed token payload.
+function getPasswordResetFingerprint(passwordHash) {
+  return createHash('sha256').update(passwordHash).digest('hex');
+}
 
 async function register({ name, email, password }) {
   const errors = {};
@@ -96,4 +103,67 @@ async function login({ email, password }) {
   };
 }
 
-module.exports = { register, activate, login };
+async function requestPasswordReset({ email }) {
+  const normalizedEmail = String(email).trim();
+  const emailError = validateEmail(normalizedEmail);
+
+  if (emailError) {
+    throw ApiError.badRequest('Validation failed', {
+      email: emailError,
+    });
+  }
+
+  const user = await userService.findByEmail(normalizedEmail);
+
+  if (!user) {
+    return;
+  }
+
+  const token = jwtService.signPasswordResetToken({
+    type: 'password-reset',
+    userId: user.id,
+    fingerprint: getPasswordResetFingerprint(user.password),
+  });
+
+  await mailService.sendPasswordResetLink(normalizedEmail, token);
+}
+
+async function resetPassword({ token, password }) {
+  const errors = {};
+  const passwordError = validatePassword(password);
+
+  if (passwordError) {
+    errors.password = passwordError;
+  }
+
+  if (Object.keys(errors).length > 0) {
+    throw ApiError.badRequest('Validation failed', errors);
+  }
+
+  const payload = jwtService.verifyPasswordResetToken(token);
+
+  if (!payload || payload.type !== 'password-reset') {
+    throw ApiError.notFound('Invalid password reset token');
+  }
+
+  const user = await userService.findById(payload.userId);
+
+  if (!user) {
+    throw ApiError.notFound('User not found');
+  }
+
+  if (getPasswordResetFingerprint(user.password) !== payload.fingerprint) {
+    throw ApiError.badRequest('Password reset link is no longer valid');
+  }
+
+  user.password = await bcrypt.hash(password, 10);
+  await user.save();
+}
+
+module.exports = {
+  register,
+  activate,
+  login,
+  requestPasswordReset,
+  resetPassword,
+};

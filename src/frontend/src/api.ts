@@ -61,6 +61,23 @@ export function login(body: { email: string; password: string }) {
   });
 }
 
+export function requestPasswordReset(body: { email: string }) {
+  return request<{ message: string }>('/password-reset', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function confirmPasswordReset(body: {
+  token: string;
+  password: string;
+}) {
+  return request<{ message: string }>('/password-reset/confirm', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export function fetchMe() {
   return request<{ id: number; name: string; email: string }>('/users/me');
 }

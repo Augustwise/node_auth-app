@@ -47,6 +47,32 @@ async function login(req, res, next) {
   }
 }
 
+async function requestPasswordReset(req, res, next) {
+  try {
+    const { email = '' } = req.body;
+
+    await authService.requestPasswordReset({ email });
+
+    res.json({
+      message: 'If an account exists for that email, we sent a reset link.',
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    const { token = '', password = '' } = req.body;
+
+    await authService.resetPassword({ token, password });
+
+    res.json({ message: 'Password reset successfully.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function confirmEmailChange(req, res, next) {
   try {
     const { token = '' } = req.params;
@@ -65,4 +91,11 @@ async function confirmEmailChange(req, res, next) {
 }
 
 // eslint-disable-next-line object-curly-newline
-module.exports = { register, activate, login, confirmEmailChange };
+module.exports = {
+  register,
+  activate,
+  login,
+  requestPasswordReset,
+  resetPassword,
+  confirmEmailChange,
+};

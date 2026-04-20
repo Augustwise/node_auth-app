@@ -1,40 +1,35 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { login, setAccessToken, type ApiError } from './api';
+import { requestPasswordReset, type ApiError } from './api';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validateEmail(email: string): string[] {
-  if (!EMAIL_REGEX.test(email)) {
+  if (!EMAIL_REGEX.test(email.trim())) {
     return ['Invalid email address'];
   }
 
   return [];
 }
 
-function validatePassword(password: string): string[] {
-  if (password.length === 0) {
-    return ['Password is required'];
-  }
-
-  return [];
-}
-
-export function LoginForm() {
+export function PasswordResetRequestForm() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
   const [serverMessage, setServerMessage] = useState<string | null>(null);
 
-  const emailErrors = validateEmail(email);
-  const passwordErrors = validatePassword(password);
-  const hasClientErrors = emailErrors.length > 0 || passwordErrors.length > 0;
+  const emailErrors = [
+    ...validateEmail(email),
+    ...(serverErrors.email ? [serverErrors.email] : []),
+  ];
+  const hasClientErrors = validateEmail(email).length > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
+    setServerErrors({});
     setServerMessage(null);
 
     if (hasClientErrors) {
@@ -44,12 +39,16 @@ export function LoginForm() {
     setSubmitting(true);
 
     try {
-      const { accessToken } = await login({ email, password });
-      setAccessToken(accessToken);
-      navigate('/account', { replace: true });
+      const normalizedEmail = email.trim();
+      await requestPasswordReset({ email: normalizedEmail });
+      navigate('/reset-password/sent', {
+        replace: true,
+        state: { email: normalizedEmail },
+      });
     } catch (err) {
       const apiError = err as ApiError;
-      setServerMessage(apiError?.message ?? 'Could not log you in.');
+      setServerErrors(apiError?.errors ?? {});
+      setServerMessage(apiError?.message ?? 'Could not send reset email.');
     } finally {
       setSubmitting(false);
     }
@@ -69,7 +68,11 @@ export function LoginForm() {
         padding: '0 16px',
       }}
     >
-      <h2 style={{ margin: 0 }}>Log in</h2>
+      <h2 style={{ margin: 0 }}>Reset password</h2>
+      <p style={{ margin: 0, color: '#444', lineHeight: 1.5 }}>
+        Enter the email address for your account and we send you a link
+        to choose a new password.
+      </p>
 
       <input
         type="email"
@@ -77,7 +80,12 @@ export function LoginForm() {
         value={email}
         onChange={e => setEmail(e.target.value)}
         required
-        style={{ padding: 8, fontSize: 14, borderColor: submitted && emailErrors.length > 0 ? '#c00' : undefined }}
+        style={{
+          padding: 8,
+          fontSize: 14,
+          borderColor:
+            submitted && emailErrors.length > 0 ? '#c00' : undefined,
+        }}
       />
 
       {submitted && emailErrors.length > 0 && (
@@ -86,35 +94,16 @@ export function LoginForm() {
         </ul>
       )}
 
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        required
-        style={{ padding: 8, fontSize: 14, borderColor: submitted && passwordErrors.length > 0 ? '#c00' : undefined }}
-      />
-
-      {submitted && passwordErrors.length > 0 && (
-        <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
-          {passwordErrors.map(error => <li key={error}>{error}</li>)}
-        </ul>
-      )}
-
-      {serverMessage && (
+      {serverMessage && Object.keys(serverErrors).length === 0 && (
         <p style={{ color: '#c00', margin: 0, fontSize: 13 }}>{serverMessage}</p>
       )}
 
       <button className="app-button" type="submit" disabled={submitting}>
-        {submitting ? 'Logging in...' : 'Log in'}
+        {submitting ? 'Sending...' : 'Send reset link'}
       </button>
 
       <p style={{ margin: 0, fontSize: 14 }}>
-        <Link to="/reset-password">Forgot your password?</Link>
-      </p>
-
-      <p style={{ margin: 0, fontSize: 14 }}>
-        No account yet? <Link to="/register">Create one</Link>
+        Remembered it? <Link to="/login">Back to login</Link>
       </p>
     </form>
   );
