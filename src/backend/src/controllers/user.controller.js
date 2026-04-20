@@ -45,4 +45,23 @@ async function changeName(req, res, next) {
   }
 }
 
-module.exports = { me, changePassword, changeName };
+async function changeEmail(req, res, next) {
+  try {
+    const { password = '', newEmail = '' } = req.body;
+
+    await userService.requestEmailChange({
+      userId: req.user.id,
+      password,
+      newEmail,
+    });
+
+    res.json({
+      message: 'Confirmation link sent to your new email address.',
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// eslint-disable-next-line object-curly-newline
+module.exports = { me, changePassword, changeName, changeEmail };

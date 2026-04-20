@@ -2,18 +2,48 @@
 
 const jwt = require('jsonwebtoken');
 
-function sign(payload) {
-  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRES || '1d',
-  });
+function signToken(payload, secret, expiresIn) {
+  return jwt.sign(payload, secret, { expiresIn });
 }
 
-function verify(token) {
+function verifyToken(token, secret) {
   try {
-    return jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    return jwt.verify(token, secret);
   } catch {
     return null;
   }
 }
 
-module.exports = { sign, verify };
+function sign(payload) {
+  return signToken(
+    payload,
+    process.env.JWT_ACCESS_SECRET,
+    process.env.JWT_ACCESS_EXPIRES || '1d',
+  );
+}
+
+function verify(token) {
+  return verifyToken(token, process.env.JWT_ACCESS_SECRET);
+}
+
+function signEmailChangeToken(payload) {
+  return signToken(
+    payload,
+    process.env.JWT_EMAIL_CHANGE_SECRET || process.env.JWT_ACCESS_SECRET,
+    process.env.JWT_EMAIL_CHANGE_EXPIRES || '1h',
+  );
+}
+
+function verifyEmailChangeToken(token) {
+  return verifyToken(
+    token,
+    process.env.JWT_EMAIL_CHANGE_SECRET || process.env.JWT_ACCESS_SECRET,
+  );
+}
+
+module.exports = {
+  sign,
+  verify,
+  signEmailChangeToken,
+  verifyEmailChangeToken,
+};

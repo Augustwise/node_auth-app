@@ -9,5 +9,6 @@ const userRouter = express.Router();
 userRouter.get('/me', authMiddleware, userController.me);
 userRouter.patch('/me/password', authMiddleware, userController.changePassword);
 userRouter.patch('/me/name', authMiddleware, userController.changeName);
+userRouter.patch('/me/email', authMiddleware, userController.changeEmail);
 
 module.exports = { userRouter };

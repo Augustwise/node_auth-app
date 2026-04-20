@@ -81,3 +81,13 @@ export function changeName(body: { newName: string }) {
     body: JSON.stringify(body),
   });
 }
+
+export function changeEmail(body: {
+  password: string;
+  newEmail: string;
+}) {
+  return request<{ message: string }>('/users/me/email', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}

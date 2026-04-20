@@ -59,6 +59,22 @@ body {
   color: #fff;
 }
 
+.app-button--danger {
+  color: #b42318;
+  border-color: #b42318;
+}
+
+.app-button--danger:hover {
+  background: #b42318;
+  border-color: #b42318;
+  color: #fff;
+}
+
+.app-button--danger:focus-visible {
+  outline: 3px solid rgba(180, 35, 24, 0.25);
+  outline-offset: 2px;
+}
+
 .app-button:disabled {
   opacity: 0.65;
   cursor: not-allowed;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  changeEmail,
   changeName,
   changePassword,
   clearAccessToken,
@@ -14,6 +15,14 @@ type User = { id: number; name: string; email: string };
 function validateOldPassword(password: string): string[] {
   if (password.length === 0) {
     return ['Old password is required'];
+  }
+
+  return [];
+}
+
+function validateCurrentPassword(password: string): string[] {
+  if (password.length === 0) {
+    return ['Password is required'];
   }
 
   return [];
@@ -41,6 +50,16 @@ function validateNewName(name: string): string[] {
   return [];
 }
 
+function validateNewEmail(email: string): string[] {
+  const trimmedEmail = email.trim();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    return ['Invalid email address'];
+  }
+
+  return [];
+}
+
 function validatePasswordConfirmation(
   newPassword: string,
   confirmPassword: string,
@@ -56,16 +75,39 @@ function validatePasswordConfirmation(
   return [];
 }
 
+function validateEmailConfirmation(
+  newEmail: string,
+  confirmEmail: string,
+): string[] {
+  if (confirmEmail.trim().length === 0) {
+    return ['Please confirm the new email'];
+  }
+
+  if (newEmail.trim() !== confirmEmail.trim()) {
+    return ['Email addresses do not match'];
+  }
+
+  return [];
+}
+
 export function AccountPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showChangeName, setShowChangeName] = useState(false);
+  const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [newName, setNewName] = useState('');
   const [nameSubmitted, setNameSubmitted] = useState(false);
   const [nameSubmitting, setNameSubmitting] = useState(false);
   const [nameServerErrors, setNameServerErrors] = useState<Record<string, string>>({});
   const [nameServerMessage, setNameServerMessage] = useState<string | null>(null);
+  const [emailPassword, setEmailPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [confirmNewEmail, setConfirmNewEmail] = useState('');
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [emailSubmitting, setEmailSubmitting] = useState(false);
+  const [emailServerErrors, setEmailServerErrors] = useState<Record<string, string>>({});
+  const [emailServerMessage, setEmailServerMessage] = useState<string | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -102,9 +144,11 @@ export function AccountPage() {
 
   function handleShowChangeName() {
     setShowChangeName(true);
+    setShowChangeEmail(false);
     setShowChangePassword(false);
     setSuccessMessage(null);
     resetChangeNameForm();
+    resetChangeEmailForm();
     resetChangePasswordForm();
   }
 
@@ -147,6 +191,78 @@ export function AccountPage() {
     }
   }
 
+  function resetChangeEmailForm() {
+    setEmailPassword('');
+    setNewEmail('');
+    setConfirmNewEmail('');
+    setEmailSubmitted(false);
+    setEmailSubmitting(false);
+    setEmailServerErrors({});
+    setEmailServerMessage(null);
+  }
+
+  function handleShowChangeEmail() {
+    setShowChangeEmail(true);
+    setShowChangeName(false);
+    setShowChangePassword(false);
+    setSuccessMessage(null);
+    resetChangeNameForm();
+    resetChangeEmailForm();
+    resetChangePasswordForm();
+  }
+
+  function handleCancelChangeEmail() {
+    setShowChangeEmail(false);
+    resetChangeEmailForm();
+  }
+
+  const emailPasswordErrors = [
+    ...validateCurrentPassword(emailPassword),
+    ...(emailServerErrors.password ? [emailServerErrors.password] : []),
+  ];
+  const newEmailErrors = [
+    ...validateNewEmail(newEmail),
+    ...(emailServerErrors.newEmail ? [emailServerErrors.newEmail] : []),
+  ];
+  const confirmNewEmailErrors = [
+    ...validateEmailConfirmation(newEmail, confirmNewEmail),
+  ];
+  const hasEmailClientErrors =
+    validateCurrentPassword(emailPassword).length > 0 ||
+    validateNewEmail(newEmail).length > 0 ||
+    validateEmailConfirmation(newEmail, confirmNewEmail).length > 0;
+
+  async function handleChangeEmailSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setEmailSubmitted(true);
+    setEmailServerErrors({});
+    setEmailServerMessage(null);
+    setSuccessMessage(null);
+
+    if (hasEmailClientErrors) {
+      return;
+    }
+
+    setEmailSubmitting(true);
+
+    try {
+      const { message } = await changeEmail({
+        password: emailPassword,
+        newEmail: newEmail.trim(),
+      });
+
+      setSuccessMessage(message);
+      setShowChangeEmail(false);
+      resetChangeEmailForm();
+    } catch (err) {
+      const apiError = err as ApiError;
+      setEmailServerErrors(apiError?.errors ?? {});
+      setEmailServerMessage(apiError?.message ?? 'Could not change your email.');
+    } finally {
+      setEmailSubmitting(false);
+    }
+  }
+
   function resetChangePasswordForm() {
     setOldPassword('');
     setNewPassword('');
@@ -160,8 +276,10 @@ export function AccountPage() {
   function handleShowChangePassword() {
     setShowChangePassword(true);
     setShowChangeName(false);
+    setShowChangeEmail(false);
     setSuccessMessage(null);
     resetChangeNameForm();
+    resetChangeEmailForm();
     resetChangePasswordForm();
   }
 
@@ -276,10 +394,13 @@ export function AccountPage() {
         <button className="app-button" type="button" onClick={handleShowChangeName}>
           Change Name
         </button>
+        <button className="app-button" type="button" onClick={handleShowChangeEmail}>
+          Change Email
+        </button>
         <button className="app-button" type="button" onClick={handleShowChangePassword}>
           Change Password
         </button>
-        <button className="app-button" type="button" onClick={handleLogout}>
+        <button className="app-button app-button--danger" type="button" onClick={handleLogout}>
           Log out
         </button>
       </div>
@@ -324,6 +445,86 @@ export function AccountPage() {
               {nameSubmitting ? 'Saving...' : 'Save new name'}
             </button>
             <button className="app-button" type="button" onClick={handleCancelChangeName} disabled={nameSubmitting}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {showChangeEmail && (
+        <form
+          onSubmit={handleChangeEmailSubmit}
+          noValidate
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            marginTop: 20,
+            padding: 16,
+            border: '1px solid #d7d7d7',
+            borderRadius: 12,
+          }}
+        >
+          <h3 style={{ margin: 0 }}>Change email</h3>
+
+          <input
+            type="password"
+            placeholder="Current password"
+            value={emailPassword}
+            onChange={e => setEmailPassword(e.target.value)}
+            required
+            style={{ padding: 8, fontSize: 14, borderColor: emailSubmitted && emailPasswordErrors.length > 0 ? '#c00' : undefined }}
+          />
+
+          {emailSubmitted && emailPasswordErrors.length > 0 && (
+            <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
+              {emailPasswordErrors.map(passwordError => <li key={passwordError}>{passwordError}</li>)}
+            </ul>
+          )}
+
+          <input
+            type="email"
+            placeholder="New email"
+            value={newEmail}
+            onChange={e => setNewEmail(e.target.value)}
+            required
+            style={{ padding: 8, fontSize: 14, borderColor: emailSubmitted && newEmailErrors.length > 0 ? '#c00' : undefined }}
+          />
+
+          {emailSubmitted && newEmailErrors.length > 0 && (
+            <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
+              {newEmailErrors.map(emailError => <li key={emailError}>{emailError}</li>)}
+            </ul>
+          )}
+
+          <input
+            type="email"
+            placeholder="Confirm new email"
+            value={confirmNewEmail}
+            onChange={e => setConfirmNewEmail(e.target.value)}
+            required
+            style={{ padding: 8, fontSize: 14, borderColor: emailSubmitted && confirmNewEmailErrors.length > 0 ? '#c00' : undefined }}
+          />
+
+          {emailSubmitted && confirmNewEmailErrors.length > 0 && (
+            <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
+              {confirmNewEmailErrors.map(emailError => <li key={emailError}>{emailError}</li>)}
+            </ul>
+          )}
+
+          {emailServerMessage && Object.keys(emailServerErrors).length === 0 && (
+            <p style={{ color: '#c00', margin: 0, fontSize: 13 }}>{emailServerMessage}</p>
+          )}
+
+          <p style={{ margin: 0, fontSize: 13, color: '#555' }}>
+            We&apos;ll send a confirmation link to the new address and notify your current email after the change.
+          </p>
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button className="app-button" type="submit" disabled={emailSubmitting}>
+              {emailSubmitting ? 'Sending confirmation...' : 'Send confirmation link'}
+            </button>
+            <button className="app-button" type="button" onClick={handleCancelChangeEmail} disabled={emailSubmitting}>
               Cancel
             </button>
           </div>

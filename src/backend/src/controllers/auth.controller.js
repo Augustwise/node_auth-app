@@ -2,6 +2,7 @@
 
 const authService = require('../services/auth.service');
 const jwtService = require('../services/jwt.service');
+const userService = require('../services/user.service');
 
 async function register(req, res, next) {
   try {
@@ -24,8 +25,12 @@ async function activate(req, res, next) {
 
     const token = jwtService.sign({ id: user.id, email: user.email });
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const search = new URLSearchParams({
+      accessToken: token,
+      flow: 'registration',
+    });
 
-    res.redirect(`${clientUrl}/activation?accessToken=${token}`);
+    res.redirect(`${clientUrl}/activation?${search.toString()}`);
   } catch (error) {
     next(error);
   }
@@ -42,4 +47,22 @@ async function login(req, res, next) {
   }
 }
 
-module.exports = { register, activate, login };
+async function confirmEmailChange(req, res, next) {
+  try {
+    const { token = '' } = req.params;
+    const user = await userService.confirmEmailChange(token);
+    const accessToken = jwtService.sign({ id: user.id, email: user.email });
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const search = new URLSearchParams({
+      accessToken,
+      flow: 'email-change',
+    });
+
+    res.redirect(`${clientUrl}/activation?${search.toString()}`);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// eslint-disable-next-line object-curly-newline
+module.exports = { register, activate, login, confirmEmailChange };

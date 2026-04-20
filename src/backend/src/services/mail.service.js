@@ -73,4 +73,37 @@ function sendActivationLink(email, hash) {
   });
 }
 
-module.exports = { sendActivationLink };
+function sendEmailChangeConfirmation(email, token) {
+  const serverUrl = process.env.SERVER_URL || 'http://localhost:4000';
+  const link = `${serverUrl}/email-change/confirm/${encodeURIComponent(token)}`;
+
+  return send({
+    to: email,
+    subject: 'Confirm your new email address',
+    text: `Follow this link to confirm your new email address: ${link}`,
+    html: `
+      <h2>Confirm your new email address</h2>
+      <p>Follow the link below to confirm your new email address:</p>
+      <a href="${link}">${link}</a>
+    `,
+  });
+}
+
+function sendEmailChangeNotification(email, newEmail) {
+  return send({
+    to: email,
+    subject: 'Your email address was changed',
+    text: `Your account email was changed to ${newEmail}. If this was not you, please contact support immediately.`,
+    html: `
+      <h2>Your email address was changed</h2>
+      <p>Your account email was changed to <strong>${newEmail}</strong>.</p>
+      <p>If this was not you, please contact support immediately.</p>
+    `,
+  });
+}
+
+module.exports = {
+  sendActivationLink,
+  sendEmailChangeConfirmation,
+  sendEmailChangeNotification,
+};

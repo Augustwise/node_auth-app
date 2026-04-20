@@ -9,4 +9,9 @@ authRouter.post('/register', authController.register);
 authRouter.post('/login', authController.login);
 authRouter.get('/activate/:hash', authController.activate);
 
+authRouter.get(
+  '/email-change/confirm/:token',
+  authController.confirmEmailChange,
+);
+
 module.exports = { authRouter };
