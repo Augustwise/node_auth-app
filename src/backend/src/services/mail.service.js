@@ -104,8 +104,7 @@ function sendEmailChangeNotification(email, newEmail) {
 
 function sendPasswordResetLink(email, token) {
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-  const link =
-    `${clientUrl}/reset-password/confirm?token=${encodeURIComponent(token)}`;
+  const link = `${clientUrl}/reset-password/confirm?token=${encodeURIComponent(token)}`;
 
   return send({
     to: email,

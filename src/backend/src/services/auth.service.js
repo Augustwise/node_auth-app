@@ -18,7 +18,9 @@ const mailService = require('./mail.service');
 // Hash the stored bcrypt hash so reset tokens expire after a password change
 // without exposing the password hash itself inside the signed token payload.
 function getPasswordResetFingerprint(passwordHash) {
-  return createHash('sha256').update(passwordHash).digest('hex');
+  return createHash('sha256')
+    .update(passwordHash || 'no-password')
+    .digest('hex');
 }
 
 async function register({ name, email, password }) {
@@ -83,6 +85,13 @@ async function login({ email, password }) {
 
   if (!user) {
     throw ApiError.unauthorized('Invalid email or password');
+  }
+
+  if (!user.password) {
+    throw ApiError.unauthorized(
+      'This account does not have a password yet. ' +
+        'Sign in with GitHub or reset your password to set one.',
+    );
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.password);

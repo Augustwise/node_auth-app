@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { register, type ApiError } from './api';
+import {
+  register,
+  startGithubAuthentication,
+  type ApiError,
+} from './api';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -40,6 +44,7 @@ export function RegisterForm() {
   const [password, setPassword] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [githubSubmitting, setGithubSubmitting] = useState(false);
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
   const [serverMessage, setServerMessage] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -76,6 +81,23 @@ export function RegisterForm() {
     }
   }
 
+  async function handleGithubSignup() {
+    setServerErrors({});
+    setServerMessage(null);
+    setGithubSubmitting(true);
+
+    try {
+      const { url } = await startGithubAuthentication();
+      window.location.assign(url);
+    } catch (err) {
+      const apiError = err as ApiError;
+      setServerMessage(
+        apiError?.message ?? 'Could not start GitHub sign-up.',
+      );
+      setGithubSubmitting(false);
+    }
+  }
+
   if (success) {
     return (
       <div style={{ maxWidth: 480, margin: '60px auto', padding: '0 16px', textAlign: 'center' }}>
@@ -88,6 +110,19 @@ export function RegisterForm() {
   return (
     <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 320, width: '100%', margin: '60px auto', padding: '0 16px' }}>
       <h2 style={{ margin: 0 }}>Create account</h2>
+
+      <button
+        className="app-button"
+        type="button"
+        onClick={handleGithubSignup}
+        disabled={submitting || githubSubmitting}
+      >
+        {githubSubmitting ? 'Opening GitHub...' : 'Sign up with GitHub'}
+      </button>
+
+      <p style={{ margin: 0, fontSize: 13, color: '#666', textAlign: 'center' }}>
+        Or create an account with email and password
+      </p>
 
       <input
         type="text"

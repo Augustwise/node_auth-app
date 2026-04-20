@@ -1,17 +1,13 @@
 'use strict';
 
 const userService = require('../services/user.service');
-const { ApiError } = require('../utils/ApiError');
+const socialAccountService = require('../services/socialAccount.service');
 
 async function me(req, res, next) {
   try {
-    const user = await userService.findById(req.user.id);
+    const profile = await userService.getProfile(req.user.id);
 
-    if (!user) {
-      throw ApiError.notFound('User not found');
-    }
-
-    res.json(userService.normalize(user));
+    res.json(profile);
   } catch (error) {
     next(error);
   }
@@ -21,13 +17,13 @@ async function changePassword(req, res, next) {
   try {
     const { oldPassword = '', newPassword = '' } = req.body;
 
-    await userService.changePassword({
+    const message = await userService.changePassword({
       userId: req.user.id,
       oldPassword,
       newPassword,
     });
 
-    res.json({ message: 'Password changed successfully.' });
+    res.json({ message });
   } catch (error) {
     next(error);
   }
@@ -63,5 +59,24 @@ async function changeEmail(req, res, next) {
   }
 }
 
+async function removeGithubAccount(req, res, next) {
+  try {
+    await socialAccountService.removeByUserAndProvider({
+      userId: req.user.id,
+      provider: socialAccountService.GITHUB_PROVIDER,
+    });
+
+    res.json({ message: 'GitHub account removed successfully.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
 // eslint-disable-next-line object-curly-newline
-module.exports = { me, changePassword, changeName, changeEmail };
+module.exports = {
+  me,
+  changePassword,
+  changeName,
+  changeEmail,
+  removeGithubAccount,
+};

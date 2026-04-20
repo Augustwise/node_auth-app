@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { login, setAccessToken, type ApiError } from './api';
+import {
+  login,
+  setAccessToken,
+  startGithubAuthentication,
+  type ApiError,
+} from './api';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -20,22 +25,39 @@ function validatePassword(password: string): string[] {
   return [];
 }
 
-export function LoginForm() {
+type LoginFormProps = {
+  initialMessage?: string | null;
+};
+
+export function LoginForm({ initialMessage = null }: LoginFormProps) {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [serverMessage, setServerMessage] = useState<string | null>(null);
+  const [githubSubmitting, setGithubSubmitting] = useState(false);
+  const [serverMessageState, setServerMessageState] = useState(() => ({
+    initialMessage,
+    value: initialMessage,
+  }));
 
   const emailErrors = validateEmail(email);
   const passwordErrors = validatePassword(password);
   const hasClientErrors = emailErrors.length > 0 || passwordErrors.length > 0;
 
+  if (serverMessageState.initialMessage !== initialMessage) {
+    setServerMessageState({
+      initialMessage,
+      value: initialMessage,
+    });
+  }
+
+  const serverMessage = serverMessageState.value;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
-    setServerMessage(null);
+    setServerMessageState(current => ({ ...current, value: null }));
 
     if (hasClientErrors) {
       return;
@@ -49,9 +71,29 @@ export function LoginForm() {
       navigate('/account', { replace: true });
     } catch (err) {
       const apiError = err as ApiError;
-      setServerMessage(apiError?.message ?? 'Could not log you in.');
+      setServerMessageState(current => ({
+        ...current,
+        value: apiError?.message ?? 'Could not log you in.',
+      }));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleGithubLogin() {
+    setServerMessageState(current => ({ ...current, value: null }));
+    setGithubSubmitting(true);
+
+    try {
+      const { url } = await startGithubAuthentication();
+      window.location.assign(url);
+    } catch (err) {
+      const apiError = err as ApiError;
+      setServerMessageState(current => ({
+        ...current,
+        value: apiError?.message ?? 'Could not start GitHub sign-in.',
+      }));
+      setGithubSubmitting(false);
     }
   }
 
@@ -70,6 +112,19 @@ export function LoginForm() {
       }}
     >
       <h2 style={{ margin: 0 }}>Log in</h2>
+
+      <button
+        className="app-button"
+        type="button"
+        onClick={handleGithubLogin}
+        disabled={submitting || githubSubmitting}
+      >
+        {githubSubmitting ? 'Opening GitHub...' : 'Continue with GitHub'}
+      </button>
+
+      <p style={{ margin: 0, fontSize: 13, color: '#666', textAlign: 'center' }}>
+        Or use your email and password
+      </p>
 
       <input
         type="email"

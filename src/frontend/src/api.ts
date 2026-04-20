@@ -19,6 +19,18 @@ export type ApiError = {
   errors?: Record<string, string>;
 };
 
+export type SocialAccount = {
+  provider: string;
+};
+
+export type MeResponse = {
+  id: number;
+  name: string;
+  email: string;
+  hasPassword: boolean;
+  socialAccounts: SocialAccount[];
+};
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -32,7 +44,11 @@ async function request<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+    credentials: 'include',
+  });
 
   const data = response.status === 204 ? null : await response.json();
 
@@ -79,7 +95,7 @@ export function confirmPasswordReset(body: {
 }
 
 export function fetchMe() {
-  return request<{ id: number; name: string; email: string }>('/users/me');
+  return request<MeResponse>('/users/me');
 }
 
 export function changePassword(body: {
@@ -106,5 +122,23 @@ export function changeEmail(body: {
   return request<{ message: string }>('/users/me/email', {
     method: 'PATCH',
     body: JSON.stringify(body),
+  });
+}
+
+export function startGithubAuthentication() {
+  return request<{ url: string }>('/auth/github/start', {
+    method: 'POST',
+  });
+}
+
+export function startGithubLink() {
+  return request<{ url: string }>('/auth/github/link/start', {
+    method: 'POST',
+  });
+}
+
+export function removeGithubAccount() {
+  return request<{ message: string }>('/users/me/social-accounts/github', {
+    method: 'DELETE',
   });
 }

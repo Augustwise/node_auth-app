@@ -1,8 +1,13 @@
 'use strict';
 
+const { passport, isGithubAuthEnabled } = require('../config/passport');
 const authService = require('../services/auth.service');
+const {
+  finalizeGitHubAuthentication,
+} = require('../services/githubAuth.service');
 const jwtService = require('../services/jwt.service');
 const userService = require('../services/user.service');
+const { ApiError } = require('../utils/ApiError');
 
 async function register(req, res, next) {
   try {
@@ -90,6 +95,161 @@ async function confirmEmailChange(req, res, next) {
   }
 }
 
+function buildClientRedirect(pathname, params = {}) {
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const redirectUrl = new URL(pathname, clientUrl);
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      redirectUrl.searchParams.set(key, value);
+    }
+  });
+
+  return redirectUrl.toString();
+}
+
+function saveSession(req) {
+  return new Promise((resolve, reject) => {
+    req.session.save((error) => {
+      if (error) {
+        reject(error);
+
+        return;
+      }
+
+      resolve();
+    });
+  });
+}
+
+function destroySession(req) {
+  if (!req.session) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    req.session.destroy(() => resolve());
+  });
+}
+
+async function startGithubAuthentication(req, res, next) {
+  try {
+    if (!isGithubAuthEnabled()) {
+      throw ApiError.badRequest('GitHub sign-in is not configured.');
+    }
+
+    req.session.githubAuth = {
+      intent: 'authenticate',
+    };
+
+    await saveSession(req);
+
+    const serverUrl = process.env.SERVER_URL || 'http://localhost:4000';
+
+    res.json({
+      url: `${serverUrl}/auth/github`,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function startGithubLink(req, res, next) {
+  try {
+    if (!isGithubAuthEnabled()) {
+      throw ApiError.badRequest('GitHub sign-in is not configured.');
+    }
+
+    req.session.githubAuth = {
+      intent: 'link',
+      userId: req.user.id,
+    };
+
+    await saveSession(req);
+
+    const serverUrl = process.env.SERVER_URL || 'http://localhost:4000';
+
+    res.json({
+      url: `${serverUrl}/auth/github`,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+function githubAuthenticate(req, res, next) {
+  if (!isGithubAuthEnabled()) {
+    next(ApiError.badRequest('GitHub sign-in is not configured.'));
+
+    return;
+  }
+
+  passport.authenticate('github', {
+    scope: ['user:email'],
+    session: false,
+    state: true,
+  })(req, res, next);
+}
+
+function githubCallback(req, res, next) {
+  if (!isGithubAuthEnabled()) {
+    next(ApiError.badRequest('GitHub sign-in is not configured.'));
+
+    return;
+  }
+
+  passport.authenticate(
+    'github',
+    {
+      session: false,
+    },
+    async (error, profile) => {
+      const sessionData = req.session?.githubAuth || {
+        intent: 'authenticate',
+      };
+
+      const isLinkFlow = sessionData.intent === 'link';
+      const fallbackRedirect = isLinkFlow ? '/account' : '/login';
+
+      if (error || !profile) {
+        await destroySession(req);
+
+        res.redirect(
+          buildClientRedirect(fallbackRedirect, {
+            error: 'GitHub authentication failed. Please try again.',
+          }),
+        );
+
+        return;
+      }
+
+      try {
+        const result = await finalizeGitHubAuthentication(
+          profile,
+          isLinkFlow ? sessionData.userId : null,
+        );
+
+        await destroySession(req);
+
+        res.redirect(
+          buildClientRedirect(result.redirectPath, {
+            accessToken: result.accessToken,
+            notice: result.message,
+          }),
+        );
+      } catch (authError) {
+        await destroySession(req);
+
+        res.redirect(
+          buildClientRedirect(fallbackRedirect, {
+            error: authError.message,
+          }),
+        );
+      }
+    },
+  )(req, res, next);
+}
+
 // eslint-disable-next-line object-curly-newline
 module.exports = {
   register,
@@ -98,4 +258,8 @@ module.exports = {
   requestPasswordReset,
   resetPassword,
   confirmEmailChange,
+  startGithubAuthentication,
+  startGithubLink,
+  githubAuthenticate,
+  githubCallback,
 };

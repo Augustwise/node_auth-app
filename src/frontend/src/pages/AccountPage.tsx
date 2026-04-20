@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   changeEmail,
   changeName,
@@ -7,12 +7,23 @@ import {
   clearAccessToken,
   fetchMe,
   getAccessToken,
+  removeGithubAccount,
+  setAccessToken,
+  startGithubLink,
   type ApiError,
+  type MeResponse,
 } from '../api';
 
-type User = { id: number; name: string; email: string };
+type User = MeResponse;
 
-function validateOldPassword(password: string): string[] {
+function validateOldPassword(
+  password: string,
+  requiresCurrentPassword: boolean,
+): string[] {
+  if (!requiresCurrentPassword) {
+    return [];
+  }
+
   if (password.length === 0) {
     return ['Old password is required'];
   }
@@ -92,31 +103,58 @@ function validateEmailConfirmation(
 
 export function AccountPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(
+    () => searchParams.get('error'),
+  );
   const [showChangeName, setShowChangeName] = useState(false);
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [newName, setNewName] = useState('');
   const [nameSubmitted, setNameSubmitted] = useState(false);
   const [nameSubmitting, setNameSubmitting] = useState(false);
   const [nameServerErrors, setNameServerErrors] = useState<Record<string, string>>({});
-  const [nameServerMessage, setNameServerMessage] = useState<string | null>(null);
+  const [nameServerMessage, setNameServerMessage] = useState<string | null>(
+    null,
+  );
   const [emailPassword, setEmailPassword] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [confirmNewEmail, setConfirmNewEmail] = useState('');
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [emailSubmitting, setEmailSubmitting] = useState(false);
   const [emailServerErrors, setEmailServerErrors] = useState<Record<string, string>>({});
-  const [emailServerMessage, setEmailServerMessage] = useState<string | null>(null);
+  const [emailServerMessage, setEmailServerMessage] = useState<string | null>(
+    null,
+  );
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [socialSubmitting, setSocialSubmitting] = useState(false);
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
   const [serverMessage, setServerMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(
+    () => searchParams.get('notice'),
+  );
+
+  useEffect(() => {
+    const token = searchParams.get('accessToken');
+    const hasQueryState =
+      Boolean(token) ||
+      searchParams.has('notice') ||
+      searchParams.has('error');
+
+    if (token) {
+      setAccessToken(token);
+    }
+
+    if (hasQueryState) {
+      navigate('/account', { replace: true });
+    }
+  }, [navigate, searchParams]);
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -126,8 +164,13 @@ export function AccountPage() {
 
     fetchMe()
       .then(setUser)
-      .catch(() => setError('Could not load your account.'));
+      .catch(() => setLoadError('Could not load your account.'));
   }, [navigate]);
+
+  function clearPageMessages() {
+    setPageError(null);
+    setSuccessMessage(null);
+  }
 
   function handleLogout() {
     clearAccessToken();
@@ -142,55 +185,6 @@ export function AccountPage() {
     setNameServerMessage(null);
   }
 
-  function handleShowChangeName() {
-    setShowChangeName(true);
-    setShowChangeEmail(false);
-    setShowChangePassword(false);
-    setSuccessMessage(null);
-    resetChangeNameForm();
-    resetChangeEmailForm();
-    resetChangePasswordForm();
-  }
-
-  function handleCancelChangeName() {
-    setShowChangeName(false);
-    resetChangeNameForm();
-  }
-
-  const newNameErrors = [
-    ...validateNewName(newName),
-    ...(nameServerErrors.newName ? [nameServerErrors.newName] : []),
-  ];
-  const hasNameClientErrors = validateNewName(newName).length > 0;
-
-  async function handleChangeNameSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setNameSubmitted(true);
-    setNameServerErrors({});
-    setNameServerMessage(null);
-    setSuccessMessage(null);
-
-    if (hasNameClientErrors) {
-      return;
-    }
-
-    setNameSubmitting(true);
-
-    try {
-      const { message } = await changeName({ newName });
-      setUser(prev => prev ? { ...prev, name: newName.trim() } : prev);
-      setSuccessMessage(message);
-      setShowChangeName(false);
-      resetChangeNameForm();
-    } catch (err) {
-      const apiError = err as ApiError;
-      setNameServerErrors(apiError?.errors ?? {});
-      setNameServerMessage(apiError?.message ?? 'Could not change your name.');
-    } finally {
-      setNameSubmitting(false);
-    }
-  }
-
   function resetChangeEmailForm() {
     setEmailPassword('');
     setNewEmail('');
@@ -201,11 +195,40 @@ export function AccountPage() {
     setEmailServerMessage(null);
   }
 
+  function resetChangePasswordForm() {
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setSubmitted(false);
+    setSubmitting(false);
+    setServerErrors({});
+    setServerMessage(null);
+  }
+
+  function handleShowChangeName() {
+    setShowChangeName(true);
+    setShowChangeEmail(false);
+    setShowChangePassword(false);
+    clearPageMessages();
+    resetChangeNameForm();
+    resetChangeEmailForm();
+    resetChangePasswordForm();
+  }
+
+  function handleCancelChangeName() {
+    setShowChangeName(false);
+    resetChangeNameForm();
+  }
+
   function handleShowChangeEmail() {
+    if (!user?.hasPassword) {
+      return;
+    }
+
     setShowChangeEmail(true);
     setShowChangeName(false);
     setShowChangePassword(false);
-    setSuccessMessage(null);
+    clearPageMessages();
     resetChangeNameForm();
     resetChangeEmailForm();
     resetChangePasswordForm();
@@ -215,6 +238,33 @@ export function AccountPage() {
     setShowChangeEmail(false);
     resetChangeEmailForm();
   }
+
+  function handleShowChangePassword() {
+    setShowChangePassword(true);
+    setShowChangeName(false);
+    setShowChangeEmail(false);
+    clearPageMessages();
+    resetChangeNameForm();
+    resetChangeEmailForm();
+    resetChangePasswordForm();
+  }
+
+  function handleCancelChangePassword() {
+    setShowChangePassword(false);
+    resetChangePasswordForm();
+  }
+
+  const requiresCurrentPassword = user?.hasPassword ?? true;
+  const isGithubConnected =
+    user?.socialAccounts.some(
+      (socialAccount) => socialAccount.provider === 'github',
+    ) ?? false;
+
+  const newNameErrors = [
+    ...validateNewName(newName),
+    ...(nameServerErrors.newName ? [nameServerErrors.newName] : []),
+  ];
+  const hasNameClientErrors = validateNewName(newName).length > 0;
 
   const emailPasswordErrors = [
     ...validateCurrentPassword(emailPassword),
@@ -232,12 +282,63 @@ export function AccountPage() {
     validateNewEmail(newEmail).length > 0 ||
     validateEmailConfirmation(newEmail, confirmNewEmail).length > 0;
 
+  const oldPasswordErrors = [
+    ...validateOldPassword(oldPassword, requiresCurrentPassword),
+    ...(serverErrors.oldPassword ? [serverErrors.oldPassword] : []),
+  ];
+  const newPasswordErrors = [
+    ...validateNewPassword(newPassword),
+    ...(serverErrors.newPassword ? [serverErrors.newPassword] : []),
+  ];
+  const confirmNewPasswordErrors = [
+    ...validatePasswordConfirmation(newPassword, confirmNewPassword),
+  ];
+  const hasPasswordClientErrors =
+    validateOldPassword(oldPassword, requiresCurrentPassword).length > 0 ||
+    validateNewPassword(newPassword).length > 0 ||
+    validatePasswordConfirmation(newPassword, confirmNewPassword).length > 0;
+
+  async function handleChangeNameSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setNameSubmitted(true);
+    setNameServerErrors({});
+    setNameServerMessage(null);
+    clearPageMessages();
+
+    if (hasNameClientErrors) {
+      return;
+    }
+
+    setNameSubmitting(true);
+
+    try {
+      const { message } = await changeName({ newName });
+      setUser((previousUser) =>
+        previousUser
+          ? {
+              ...previousUser,
+              name: newName.trim(),
+            }
+          : previousUser,
+      );
+      setSuccessMessage(message);
+      setShowChangeName(false);
+      resetChangeNameForm();
+    } catch (err) {
+      const apiError = err as ApiError;
+      setNameServerErrors(apiError?.errors ?? {});
+      setNameServerMessage(apiError?.message ?? 'Could not change your name.');
+    } finally {
+      setNameSubmitting(false);
+    }
+  }
+
   async function handleChangeEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
     setEmailSubmitted(true);
     setEmailServerErrors({});
     setEmailServerMessage(null);
-    setSuccessMessage(null);
+    clearPageMessages();
 
     if (hasEmailClientErrors) {
       return;
@@ -257,61 +358,22 @@ export function AccountPage() {
     } catch (err) {
       const apiError = err as ApiError;
       setEmailServerErrors(apiError?.errors ?? {});
-      setEmailServerMessage(apiError?.message ?? 'Could not change your email.');
+      setEmailServerMessage(
+        apiError?.message ?? 'Could not change your email.',
+      );
     } finally {
       setEmailSubmitting(false);
     }
   }
-
-  function resetChangePasswordForm() {
-    setOldPassword('');
-    setNewPassword('');
-    setConfirmNewPassword('');
-    setSubmitted(false);
-    setSubmitting(false);
-    setServerErrors({});
-    setServerMessage(null);
-  }
-
-  function handleShowChangePassword() {
-    setShowChangePassword(true);
-    setShowChangeName(false);
-    setShowChangeEmail(false);
-    setSuccessMessage(null);
-    resetChangeNameForm();
-    resetChangeEmailForm();
-    resetChangePasswordForm();
-  }
-
-  function handleCancelChangePassword() {
-    setShowChangePassword(false);
-    resetChangePasswordForm();
-  }
-
-  const oldPasswordErrors = [
-    ...validateOldPassword(oldPassword),
-    ...(serverErrors.oldPassword ? [serverErrors.oldPassword] : []),
-  ];
-  const newPasswordErrors = [
-    ...validateNewPassword(newPassword),
-    ...(serverErrors.newPassword ? [serverErrors.newPassword] : []),
-  ];
-  const confirmNewPasswordErrors = [
-    ...validatePasswordConfirmation(newPassword, confirmNewPassword),
-  ];
-  const hasClientErrors =
-    validateOldPassword(oldPassword).length > 0 ||
-    validateNewPassword(newPassword).length > 0 ||
-    validatePasswordConfirmation(newPassword, confirmNewPassword).length > 0;
 
   async function handleChangePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
     setServerErrors({});
     setServerMessage(null);
-    setSuccessMessage(null);
+    clearPageMessages();
 
-    if (hasClientErrors) {
+    if (hasPasswordClientErrors) {
       return;
     }
 
@@ -319,22 +381,73 @@ export function AccountPage() {
 
     try {
       const { message } = await changePassword({ oldPassword, newPassword });
+      setUser((previousUser) =>
+        previousUser
+          ? {
+              ...previousUser,
+              hasPassword: true,
+            }
+          : previousUser,
+      );
       setSuccessMessage(message);
       setShowChangePassword(false);
       resetChangePasswordForm();
     } catch (err) {
       const apiError = err as ApiError;
       setServerErrors(apiError?.errors ?? {});
-      setServerMessage(apiError?.message ?? 'Could not change your password.');
+      setServerMessage(
+        apiError?.message ?? 'Could not change your password.',
+      );
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (error) {
+  async function handleGithubConnect() {
+    clearPageMessages();
+    setSocialSubmitting(true);
+
+    try {
+      const { url } = await startGithubLink();
+      window.location.assign(url);
+    } catch (err) {
+      const apiError = err as ApiError;
+      setPageError(
+        apiError?.message ?? 'Could not connect your GitHub account.',
+      );
+      setSocialSubmitting(false);
+    }
+  }
+
+  async function handleGithubDisconnect() {
+    clearPageMessages();
+    setSocialSubmitting(true);
+
+    try {
+      const { message } = await removeGithubAccount();
+      setUser((previousUser) =>
+        previousUser
+          ? {
+              ...previousUser,
+              socialAccounts: previousUser.socialAccounts.filter(
+                (socialAccount) => socialAccount.provider !== 'github',
+              ),
+            }
+          : previousUser,
+      );
+      setSuccessMessage(message);
+    } catch (err) {
+      const apiError = err as ApiError;
+      setPageError(apiError?.message ?? 'Could not remove GitHub.');
+    } finally {
+      setSocialSubmitting(false);
+    }
+  }
+
+  if (loadError) {
     return (
       <div style={{ maxWidth: 480, margin: '60px auto', padding: '0 16px' }}>
-        <p style={{ color: '#c00' }}>{error}</p>
+        <p style={{ color: '#c00' }}>{loadError}</p>
       </div>
     );
   }
@@ -348,7 +461,7 @@ export function AccountPage() {
   }
 
   return (
-    <div style={{ maxWidth: 480, margin: '60px auto', padding: '0 16px' }}>
+    <div style={{ maxWidth: 560, margin: '60px auto', padding: '0 16px' }}>
       <h2>Your account</h2>
       <table
         style={{
@@ -370,7 +483,9 @@ export function AccountPage() {
             >
               Name
             </th>
-            <td style={{ padding: '10px 12px', border: '1px solid #333' }}>{user.name}</td>
+            <td style={{ padding: '10px 12px', border: '1px solid #333' }}>
+              {user.name}
+            </td>
           </tr>
           <tr>
             <th
@@ -383,27 +498,105 @@ export function AccountPage() {
             >
               Email
             </th>
-            <td style={{ padding: '10px 12px', border: '1px solid #333' }}>{user.email}</td>
+            <td style={{ padding: '10px 12px', border: '1px solid #333' }}>
+              {user.email}
+            </td>
           </tr>
         </tbody>
       </table>
+
       {successMessage && (
         <p style={{ color: '#0a6b2d', margin: '0 0 16px' }}>{successMessage}</p>
       )}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+
+      {pageError && (
+        <p style={{ color: '#c00', margin: '0 0 16px' }}>{pageError}</p>
+      )}
+
+      <div
+        style={{
+          marginBottom: 20,
+          padding: 16,
+          border: '1px solid #d7d7d7',
+          borderRadius: 12,
+        }}
+      >
+        <h3 style={{ margin: '0 0 12px' }}>Sign-in methods</h3>
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <p style={{ margin: '0 0 4px', fontWeight: 700 }}>GitHub</p>
+            <p style={{ margin: 0, fontSize: 14, color: '#555' }}>
+              {isGithubConnected
+                ? 'Connected and ready to use for sign-in.'
+                : 'Connect GitHub to sign in without typing a password.'}
+            </p>
+          </div>
+
+          {isGithubConnected ? (
+            <button
+              className="app-button app-button--danger"
+              type="button"
+              onClick={handleGithubDisconnect}
+              disabled={socialSubmitting}
+            >
+              {socialSubmitting ? 'Removing...' : 'Remove GitHub'}
+            </button>
+          ) : (
+            <button
+              className="app-button"
+              type="button"
+              onClick={handleGithubConnect}
+              disabled={socialSubmitting}
+            >
+              {socialSubmitting ? 'Opening GitHub...' : 'Connect GitHub'}
+            </button>
+          )}
+        </div>
+
+        {!user.hasPassword && (
+          <p style={{ margin: '12px 0 0', fontSize: 13, color: '#555' }}>
+            Set a password before removing GitHub so your account keeps another
+            way to sign in.
+          </p>
+        )}
+      </div>
+
+      <div
+        style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}
+      >
         <button className="app-button" type="button" onClick={handleShowChangeName}>
           Change Name
         </button>
-        <button className="app-button" type="button" onClick={handleShowChangeEmail}>
+        <button
+          className="app-button"
+          type="button"
+          onClick={handleShowChangeEmail}
+          disabled={!user.hasPassword}
+        >
           Change Email
         </button>
         <button className="app-button" type="button" onClick={handleShowChangePassword}>
-          Change Password
+          {user.hasPassword ? 'Change Password' : 'Set Password'}
         </button>
         <button className="app-button app-button--danger" type="button" onClick={handleLogout}>
           Log out
         </button>
       </div>
+
+      {!user.hasPassword && (
+        <p style={{ margin: '12px 0 0', fontSize: 13, color: '#555' }}>
+          This account was created with GitHub. Set a password if you also want
+          to use email/password sign-in and email changes.
+        </p>
+      )}
 
       {showChangeName && (
         <form
@@ -425,14 +618,14 @@ export function AccountPage() {
             type="text"
             placeholder="New name"
             value={newName}
-            onChange={e => setNewName(e.target.value)}
+            onChange={(e) => setNewName(e.target.value)}
             required
             style={{ padding: 8, fontSize: 14, borderColor: nameSubmitted && newNameErrors.length > 0 ? '#c00' : undefined }}
           />
 
           {nameSubmitted && newNameErrors.length > 0 && (
             <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
-              {newNameErrors.map(nameError => <li key={nameError}>{nameError}</li>)}
+              {newNameErrors.map((nameError) => <li key={nameError}>{nameError}</li>)}
             </ul>
           )}
 
@@ -471,14 +664,14 @@ export function AccountPage() {
             type="password"
             placeholder="Current password"
             value={emailPassword}
-            onChange={e => setEmailPassword(e.target.value)}
+            onChange={(e) => setEmailPassword(e.target.value)}
             required
             style={{ padding: 8, fontSize: 14, borderColor: emailSubmitted && emailPasswordErrors.length > 0 ? '#c00' : undefined }}
           />
 
           {emailSubmitted && emailPasswordErrors.length > 0 && (
             <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
-              {emailPasswordErrors.map(passwordError => <li key={passwordError}>{passwordError}</li>)}
+              {emailPasswordErrors.map((passwordError) => <li key={passwordError}>{passwordError}</li>)}
             </ul>
           )}
 
@@ -486,14 +679,14 @@ export function AccountPage() {
             type="email"
             placeholder="New email"
             value={newEmail}
-            onChange={e => setNewEmail(e.target.value)}
+            onChange={(e) => setNewEmail(e.target.value)}
             required
             style={{ padding: 8, fontSize: 14, borderColor: emailSubmitted && newEmailErrors.length > 0 ? '#c00' : undefined }}
           />
 
           {emailSubmitted && newEmailErrors.length > 0 && (
             <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
-              {newEmailErrors.map(emailError => <li key={emailError}>{emailError}</li>)}
+              {newEmailErrors.map((emailError) => <li key={emailError}>{emailError}</li>)}
             </ul>
           )}
 
@@ -501,14 +694,14 @@ export function AccountPage() {
             type="email"
             placeholder="Confirm new email"
             value={confirmNewEmail}
-            onChange={e => setConfirmNewEmail(e.target.value)}
+            onChange={(e) => setConfirmNewEmail(e.target.value)}
             required
             style={{ padding: 8, fontSize: 14, borderColor: emailSubmitted && confirmNewEmailErrors.length > 0 ? '#c00' : undefined }}
           />
 
           {emailSubmitted && confirmNewEmailErrors.length > 0 && (
             <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
-              {confirmNewEmailErrors.map(emailError => <li key={emailError}>{emailError}</li>)}
+              {confirmNewEmailErrors.map((emailError) => <li key={emailError}>{emailError}</li>)}
             </ul>
           )}
 
@@ -517,7 +710,8 @@ export function AccountPage() {
           )}
 
           <p style={{ margin: 0, fontSize: 13, color: '#555' }}>
-            We&apos;ll send a confirmation link to the new address and notify your current email after the change.
+            We&apos;ll send a confirmation link to the new address and notify
+            your current email after the change.
           </p>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -545,35 +739,41 @@ export function AccountPage() {
             borderRadius: 12,
           }}
         >
-          <h3 style={{ margin: 0 }}>Change password</h3>
+          <h3 style={{ margin: 0 }}>
+            {requiresCurrentPassword ? 'Change password' : 'Set password'}
+          </h3>
 
-          <input
-            type="password"
-            placeholder="Old password"
-            value={oldPassword}
-            onChange={e => setOldPassword(e.target.value)}
-            required
-            style={{ padding: 8, fontSize: 14, borderColor: submitted && oldPasswordErrors.length > 0 ? '#c00' : undefined }}
-          />
+          {requiresCurrentPassword && (
+            <>
+              <input
+                type="password"
+                placeholder="Old password"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                required
+                style={{ padding: 8, fontSize: 14, borderColor: submitted && oldPasswordErrors.length > 0 ? '#c00' : undefined }}
+              />
 
-          {submitted && oldPasswordErrors.length > 0 && (
-            <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
-              {oldPasswordErrors.map(passwordError => <li key={passwordError}>{passwordError}</li>)}
-            </ul>
+              {submitted && oldPasswordErrors.length > 0 && (
+                <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
+                  {oldPasswordErrors.map((passwordError) => <li key={passwordError}>{passwordError}</li>)}
+                </ul>
+              )}
+            </>
           )}
 
           <input
             type="password"
             placeholder="New password"
             value={newPassword}
-            onChange={e => setNewPassword(e.target.value)}
+            onChange={(e) => setNewPassword(e.target.value)}
             required
             style={{ padding: 8, fontSize: 14, borderColor: submitted && newPasswordErrors.length > 0 ? '#c00' : undefined }}
           />
 
           {submitted && newPasswordErrors.length > 0 && (
             <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
-              {newPasswordErrors.map(passwordError => <li key={passwordError}>{passwordError}</li>)}
+              {newPasswordErrors.map((passwordError) => <li key={passwordError}>{passwordError}</li>)}
             </ul>
           )}
 
@@ -581,14 +781,14 @@ export function AccountPage() {
             type="password"
             placeholder="Confirm new password"
             value={confirmNewPassword}
-            onChange={e => setConfirmNewPassword(e.target.value)}
+            onChange={(e) => setConfirmNewPassword(e.target.value)}
             required
             style={{ padding: 8, fontSize: 14, borderColor: submitted && confirmNewPasswordErrors.length > 0 ? '#c00' : undefined }}
           />
 
           {submitted && confirmNewPasswordErrors.length > 0 && (
             <ul style={{ margin: 0, paddingLeft: 18, color: '#c00', fontSize: 13 }}>
-              {confirmNewPasswordErrors.map(passwordError => <li key={passwordError}>{passwordError}</li>)}
+              {confirmNewPasswordErrors.map((passwordError) => <li key={passwordError}>{passwordError}</li>)}
             </ul>
           )}
 
@@ -598,7 +798,11 @@ export function AccountPage() {
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button className="app-button" type="submit" disabled={submitting}>
-              {submitting ? 'Changing password...' : 'Save new password'}
+              {submitting
+                ? 'Saving password...'
+                : requiresCurrentPassword
+                  ? 'Save new password'
+                  : 'Save password'}
             </button>
             <button className="app-button" type="button" onClick={handleCancelChangePassword} disabled={submitting}>
               Cancel

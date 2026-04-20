@@ -8,6 +8,7 @@ function guestOnlyMiddleware(req, res, next) {
 
   if (!header) {
     next();
+
     return;
   }
 
@@ -15,6 +16,7 @@ function guestOnlyMiddleware(req, res, next) {
 
   if (type !== 'Bearer' || !token) {
     next();
+
     return;
   }
 
@@ -22,6 +24,7 @@ function guestOnlyMiddleware(req, res, next) {
 
   if (!payload) {
     next();
+
     return;
   }
 
