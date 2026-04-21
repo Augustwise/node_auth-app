@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GitHubMarkIcon } from './GitHubMarkIcon';
 import {
   login,
   setAccessToken,
@@ -119,7 +120,14 @@ export function LoginForm({ initialMessage = null }: LoginFormProps) {
         onClick={handleGithubLogin}
         disabled={submitting || githubSubmitting}
       >
-        {githubSubmitting ? 'Opening GitHub...' : 'Continue with GitHub'}
+        <span className="app-button__content">
+          <span className="app-button__icon">
+            <GitHubMarkIcon />
+          </span>
+          <span>
+            {githubSubmitting ? 'Opening GitHub...' : 'Continue with GitHub'}
+          </span>
+        </span>
       </button>
 
       <p style={{ margin: 0, fontSize: 13, color: '#666', textAlign: 'center' }}>

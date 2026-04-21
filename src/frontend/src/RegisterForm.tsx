@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { GitHubMarkIcon } from './GitHubMarkIcon';
 import {
   register,
   startGithubAuthentication,
@@ -117,7 +118,14 @@ export function RegisterForm() {
         onClick={handleGithubSignup}
         disabled={submitting || githubSubmitting}
       >
-        {githubSubmitting ? 'Opening GitHub...' : 'Sign up with GitHub'}
+        <span className="app-button__content">
+          <span className="app-button__icon">
+            <GitHubMarkIcon />
+          </span>
+          <span>
+            {githubSubmitting ? 'Opening GitHub...' : 'Sign up with GitHub'}
+          </span>
+        </span>
       </button>
 
       <p style={{ margin: 0, fontSize: 13, color: '#666', textAlign: 'center' }}>

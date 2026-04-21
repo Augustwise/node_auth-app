@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AccountEmailForm } from '../AccountEmailForm';
+import { GitHubMarkIcon } from '../GitHubMarkIcon';
 import { AccountNameForm } from '../AccountNameForm';
 import { AccountPasswordForm } from '../AccountPasswordForm';
 import {
@@ -273,7 +274,14 @@ export function AccountPage() {
               onClick={handleGithubConnect}
               disabled={socialSubmitting}
             >
-              {socialSubmitting ? 'Opening GitHub...' : 'Connect GitHub'}
+              <span className="app-button__content">
+                <span className="app-button__icon">
+                  <GitHubMarkIcon />
+                </span>
+                <span>
+                  {socialSubmitting ? 'Opening GitHub...' : 'Connect GitHub'}
+                </span>
+              </span>
             </button>
           )}
         </div>
