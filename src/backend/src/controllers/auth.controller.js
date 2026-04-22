@@ -52,6 +52,34 @@ async function login(req, res, next) {
   }
 }
 
+function logout(req, res, next) {
+  const clearSessionCookie = () => {
+    res.clearCookie('connect.sid', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+  };
+
+  if (!req.session) {
+    clearSessionCookie();
+    res.json({ message: 'Logged out successfully.' });
+
+    return;
+  }
+
+  req.session.destroy((error) => {
+    if (error) {
+      next(error);
+
+      return;
+    }
+
+    clearSessionCookie();
+    res.json({ message: 'Logged out successfully.' });
+  });
+}
+
 async function requestPasswordReset(req, res, next) {
   try {
     const { email = '' } = req.body;
@@ -255,6 +283,7 @@ module.exports = {
   register,
   activate,
   login,
+  logout,
   requestPasswordReset,
   resetPassword,
   confirmEmailChange,

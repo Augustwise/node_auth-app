@@ -7,8 +7,9 @@ const { guestOnlyMiddleware } = require('../middlewares/guestOnlyMiddleware');
 
 const authRouter = express.Router();
 
-authRouter.post('/register', authController.register);
-authRouter.post('/login', authController.login);
+authRouter.post('/register', guestOnlyMiddleware, authController.register);
+authRouter.post('/login', guestOnlyMiddleware, authController.login);
+authRouter.post('/logout', authMiddleware, authController.logout);
 
 authRouter.post(
   '/auth/github/start',

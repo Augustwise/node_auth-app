@@ -8,6 +8,7 @@ import {
   clearAccessToken,
   fetchMe,
   getAccessToken,
+  logout,
   removeGithubAccount,
   setAccessToken,
   startGithubLink,
@@ -29,6 +30,7 @@ export function AccountPage() {
   const [activeSection, setActiveSection] = useState<ActiveSection>(null);
   const [activeSectionKey, setActiveSectionKey] = useState(0);
   const [socialSubmitting, setSocialSubmitting] = useState(false);
+  const [logoutSubmitting, setLogoutSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(
     () => searchParams.get('notice'),
   );
@@ -65,9 +67,27 @@ export function AccountPage() {
     setSuccessMessage(null);
   }
 
-  function handleLogout() {
-    clearAccessToken();
-    navigate('/login', { replace: true });
+  async function handleLogout() {
+    clearPageMessages();
+    setLogoutSubmitting(true);
+
+    try {
+      await logout();
+      clearAccessToken();
+      navigate('/login', { replace: true });
+    } catch (err) {
+      const apiError = err as ApiError;
+
+      if (apiError?.message === 'Unauthorized') {
+        clearAccessToken();
+        navigate('/login', { replace: true });
+
+        return;
+      }
+
+      setPageError(apiError?.message ?? 'Could not log you out.');
+      setLogoutSubmitting(false);
+    }
   }
 
   function openSection(section: Exclude<ActiveSection, null>) {
@@ -319,8 +339,13 @@ export function AccountPage() {
         >
           {user.hasPassword ? 'Change Password' : 'Set Password'}
         </button>
-        <button className="app-button app-button--danger" type="button" onClick={handleLogout}>
-          Log out
+        <button
+          className="app-button app-button--danger"
+          type="button"
+          onClick={handleLogout}
+          disabled={logoutSubmitting}
+        >
+          {logoutSubmitting ? 'Logging out...' : 'Log out'}
         </button>
       </div>
 

@@ -77,6 +77,12 @@ export function login(body: { email: string; password: string }) {
   });
 }
 
+export function logout() {
+  return request<{ message: string }>('/logout', {
+    method: 'POST',
+  });
+}
+
 export function requestPasswordReset(body: { email: string }) {
   return request<{ message: string }>('/password-reset', {
     method: 'POST',
